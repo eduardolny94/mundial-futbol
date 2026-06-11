@@ -146,6 +146,28 @@ function formatRef(ref) {
   return ref;
 }
 
+// Estado del partido. Preferimos el campo "status" real de Zafronix
+// (scheduled / live / halftime / finished); si no viene, lo calculamos
+// comparando la hora de inicio con la hora actual.
+function mapWcStatus(m, koIso) {
+  const s = (m.status || '').toLowerCase().replace(/[\s-]+/g, '_');
+  if (m.result != null || ['finished', 'full_time', 'ft', 'complete', 'completed', 'aet', 'after_extra_time', 'penalties', 'pen'].includes(s)) {
+    return { short: 'FT', elapsed: null };
+  }
+  if (['halftime', 'half_time', 'ht', 'break'].includes(s)) return { short: 'HT', elapsed: null };
+  if (/half|live|progress|playing|extra_time/.test(s) || ['1h', '2h', 'et'].includes(s)) {
+    const el = m.liveMinute || m.minute;
+    return { short: 'LIVE', elapsed: el ? parseInt(el) : null };
+  }
+  // Sin estado claro: calculamos por la hora
+  const ko = new Date(koIso).getTime();
+  const now = Date.now();
+  const hasScore = m.homeScore != null && m.awayScore != null;
+  if (hasScore && now > ko + 150 * 60000) return { short: 'FT', elapsed: null };
+  if (now >= ko && now < ko + 150 * 60000) return { short: 'LIVE', elapsed: Math.max(1, Math.min(120, Math.floor((now - ko) / 60000))) };
+  return { short: 'NS', elapsed: null };
+}
+
 // Todos los partidos del Mundial 2026, normalizados al formato de la web
 app.get('/api/wc2026', async (req, res) => {
   try {
@@ -166,27 +188,16 @@ app.get('/api/wc2026', async (req, res) => {
       const homeName = m.homeTeam || formatRef(m.homeRef);
       const awayName = m.awayTeam || formatRef(m.awayRef);
       const tbd = !m.homeTeam || !m.awayTeam;   // rival por definir (eliminatorias)
-
-      // Estado del partido calculado segun la hora actual vs la hora de inicio
       const koIso = m.kickoffUtc || `${m.date}T${(m.kickoff || '00:00')}:00Z`;
-      const ko = new Date(koIso).getTime();
-      const now = Date.now();
-      const hasScore = m.homeScore != null && m.awayScore != null;
-      const WINDOW = 150 * 60000; // ~2.5h (incluye descanso y añadido)
-      let short = 'NS', elapsed = null;
-      if (m.result != null || (hasScore && now > ko + WINDOW)) {
-        short = 'FT';
-      } else if (now >= ko && now < ko + WINDOW) {
-        short = 'LIVE';
-        elapsed = Math.max(1, Math.min(120, Math.floor((now - ko) / 60000)));
-      }
+      const st = mapWcStatus(m, koIso);         // estado real (en vivo / entretiempo / final)
 
       return {
         fixture: {
           id: m.id,
           date: koIso,
-          status: { short, elapsed },
+          status: { short: st.short, elapsed: st.elapsed },
           venue: { name: m.stadium || '', city: m.city || '' },
+          locked: !!m.liveDataLocked,           // marcador en vivo bloqueado (plan gratis)
         },
         teams: {
           home: { id: m.homeTeam || m.homeRef, name: homeName, logo: h.logo },
@@ -214,6 +225,32 @@ app.get('/api/wc2026/team', async (req, res) => {
     res.json({ response: t ? [t] : [] });
   } catch (err) {
     console.error('Error en /api/wc2026/team ->', err.message);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Alineaciones de un partido del Mundial 2026: titulares (con dorsal,
+// posicion y capitan), formacion y entrenador de cada equipo. En el plan
+// gratis los suplentes oficiales y los cambios en vivo no estan incluidos.
+//   /api/wc2026/match?id=2026-001
+app.get('/api/wc2026/match', async (req, res) => {
+  try {
+    const matches = await zafFetch('/matches?year=2026', 60);
+    const m = (matches.data || []).find((x) => x.id === req.query.id);
+    if (!m) return res.json({ response: null });
+    res.json({
+      response: {
+        id: m.id,
+        status: m.status || '',
+        locked: !!m.liveDataLocked,
+        lockedMsg: m.liveDataLocked?.message || '',
+        formations: m.formations || null,
+        managers: m.managers || null,
+        lineups: m.lineups || null,   // { home: [...], away: [...] }
+      },
+    });
+  } catch (err) {
+    console.error('Error en /api/wc2026/match ->', err.message);
     res.status(500).json({ error: err.message });
   }
 });

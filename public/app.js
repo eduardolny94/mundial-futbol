@@ -506,9 +506,11 @@ function matchCard(f, index = 0) {
   const status = f.fixture.status.short;
   const isLive = isLiveStatus(status);
   const isDone = isFinishedStatus(status);
+  const locked = f.fixture.locked;   // marcador en vivo bloqueado (Zafronix gratis)
 
   let statusLabel, statusClass = '';
-  if (isLive) { statusLabel = (f.fixture.status.elapsed || '') + "'"; statusClass = 'live'; }
+  if (status === 'HT') { statusLabel = 'ENTRETIEMPO'; statusClass = 'live'; }
+  else if (isLive) { statusLabel = f.fixture.status.elapsed ? f.fixture.status.elapsed + "'" : 'EN VIVO'; statusClass = 'live'; }
   else if (isDone) { statusLabel = 'Final'; statusClass = 'finished'; }
   else { statusLabel = timeOnly(f.fixture.date); }
 
@@ -548,6 +550,9 @@ function matchCard(f, index = 0) {
     </div>
     ${edition === '2022'
       ? `<div class="card-prob" id="prob-${f.fixture.id}"><div class="cp-loading">Calculando probabilidad…</div></div>`
+      : ''}
+    ${(isLive && locked)
+      ? `<div class="card-live-note">🔴 En juego · el marcador en vivo es función de pago; se mostrará al finalizar</div>`
       : ''}
     ${venue ? `<div class="card-venue">${venue}</div>` : ''}
     <div class="card-foot">
@@ -622,7 +627,7 @@ function openMatch(fixtureId, meta) {
 
   let tabs, first;
   if (edition === '2026') {
-    tabs = `<button class="mtab active" data-tab="plantillas">👥 Plantillas</button>
+    tabs = `<button class="mtab active" data-tab="plantillas">👕 Alineaciones</button>
       <button class="mtab" data-tab="grupo">🏆 Grupo</button>`;
     first = 'plantillas';
   } else {
@@ -669,18 +674,54 @@ const POS_ES = { Goalkeeper: 'POR', Defender: 'DEF', Midfielder: 'MED', Forward:
 function posEs(p) { return POS_ES[p] || p || ''; }
 
 async function tabPlantillas(box) {
-  box.innerHTML = spinnerHtml('Cargando plantillas…');
+  box.innerHTML = spinnerHtml('Cargando alineaciones…');
   const m = currentMeta, id = currentFixtureId;
   try {
-    const [home, away] = await Promise.all([
+    const [match, home, away] = await Promise.all([
+      getDetail('matchLineup', '/api/wc2026/match?id=' + encodeURIComponent(id)),
       m.home.logo ? getDetail('squadHome', '/api/wc2026/team?name=' + encodeURIComponent(m.home.name)) : Promise.resolve([]),
       m.away.logo ? getDetail('squadAway', '/api/wc2026/team?name=' + encodeURIComponent(m.away.name)) : Promise.resolve([]),
     ]);
     if (currentFixtureId !== id) return;
-    box.innerHTML = `<div class="lineups">${squadCol(home[0], m.home)}${squadCol(away[0], m.away)}</div>`;
+    box.innerHTML = lineup2026Html(match, home[0], away[0], m);
   } catch (e) {
     if (currentFixtureId === id) box.innerHTML = errorNote(e.message);
   }
+}
+
+function lineup2026Html(match, homeTeam, awayTeam, m) {
+  const lu = match && match.lineups;
+  const hasLineups = lu && ((lu.home && lu.home.length) || (lu.away && lu.away.length));
+
+  if (hasLineups) {
+    const note = match.locked
+      ? `<div class="modal-note" style="margin-top:14px">🔴 El partido está en juego. Los <strong>cambios</strong> (quién entra y sale), goles, tarjetas y el marcador en vivo son función de pago de Zafronix; aquí ves las <strong>alineaciones titulares confirmadas</strong>.</div>`
+      : `<div class="modal-note" style="margin-top:14px">✅ Alineaciones titulares confirmadas. Los cambios durante el partido requieren el plan de pago de Zafronix.</div>`;
+    return `<div class="lineups">
+        ${lineupSide(lu.home, match.formations?.home, match.managers?.home, m.home, homeTeam)}
+        ${lineupSide(lu.away, match.formations?.away, match.managers?.away, m.away, awayTeam)}
+      </div>${note}`;
+  }
+
+  // Aún no hay alineación publicada: mostramos la convocatoria (plantilla)
+  return `<div class="modal-note">Las <strong>alineaciones titulares</strong> se publican aproximadamente <strong>40 a 60 minutos antes</strong> del partido. Mientras tanto, esta es la convocatoria de cada selección.</div>
+    <div class="lineups">${squadCol(homeTeam, m.home)}${squadCol(awayTeam, m.away)}</div>`;
+}
+
+function lineupSide(players, formation, manager, mt, teamFull) {
+  const starters = (players || []).filter((p) => p.starter !== false);
+  // "Resto de la convocatoria": jugadores del squad que no son titulares
+  const starterNames = new Set(starters.map((p) => (p.player || '').toLowerCase()));
+  const rest = ((teamFull && teamFull.squad) || []).filter((p) => !starterNames.has((p.name || '').toLowerCase()));
+  return `<div class="lineup-col">
+    <h4><img src="${teamFull?.flag?.flagUrl || mt.logo || ''}" alt="" onerror="this.style.visibility='hidden'">${mt.name}</h4>
+    <div class="formation">Formación: ${formation || '—'}</div>
+    <div class="coach">👔 DT: ${manager || teamFull?.coach?.name || '—'}</div>
+    <div class="ll-label">⚽ Titulares (${starters.length})</div>
+    ${starters.map((p) => `<div class="player"><span class="num">${p.number ?? '·'}</span>${p.player}${p.captain ? ' <span class="cap">Ⓒ</span>' : ''}<span class="pos">${posEs(p.position)}</span></div>`).join('')}
+    ${rest.length ? `<div class="ll-label">Resto de la convocatoria (${rest.length})</div>` +
+      rest.slice(0, 15).map((p) => `<div class="player sub"><span class="num">${p.jersey ?? '·'}</span>${p.name}<span class="pos">${posEs(p.position)}</span></div>`).join('') : ''}
+  </div>`;
 }
 
 function squadCol(t, mt) {
