@@ -24,9 +24,10 @@ const PORT = process.env.PORT || 3000;
 const API_KEY = process.env.API_FOOTBALL_KEY;
 const API_BASE = 'https://v3.football.api-sports.io';
 
-if (!API_KEY) {
-  console.warn('\n⚠️  No se encontro la clave API_FOOTBALL_KEY en el archivo .env');
-  console.warn('   La web abrira, pero los datos reales no cargaran hasta poner la clave.\n');
+if (!process.env.ZAFRONIX_KEY) {
+  console.warn('\n⚠️  No se encontro la clave ZAFRONIX_KEY (variable de entorno).');
+  console.warn('   La web abrira, pero los datos del Mundial 2026 no cargaran hasta ponerla.');
+  console.warn('   En local: archivo .env  |  En Render: Environment Variables.\n');
 }
 
 // Servir los archivos de la pagina web (carpeta /public)

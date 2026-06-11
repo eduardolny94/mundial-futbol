@@ -36,13 +36,10 @@ const el = {
   statsBoard: document.getElementById('statsBoard'),
   favBar: document.getElementById('favBar'),
   refreshBar: document.getElementById('refreshBar'),
-  ed2026: document.getElementById('ed2026'),
-  ed2022: document.getElementById('ed2022'),
 };
 
-// Edicion activa: '2026' = datos reales de Zafronix (calendario, plantillas);
-// '2022' = API-Football (incluye alineaciones titulares y % de victoria).
-let edition = '2026';
+// La app muestra solo el Mundial 2026 (datos reales de Zafronix).
+const edition = '2026';
 
 // Estado
 let seasonUsed = PRIMARY_SEASON;
@@ -143,22 +140,12 @@ async function init() {
   groupsLoaded = false;
   scorersLoaded = false;
   stopAutoRefresh();
-  // La pestaña "Grupos" solo existe en el Mundial 2026
-  el.tabGroups.classList.toggle('hidden', edition !== '2026');
   el.matches.innerHTML = spinnerHtml('Cargando partidos del Mundial…');
   try {
-    let list;
-    if (edition === '2026') {
-      list = await apiGet('/api/wc2026');           // Zafronix: Mundial 2026 real
-      seasonUsed = 2026;
-      el.brandSeason.textContent = '2026';
-      showBanner2026();
-    } else {
-      list = await apiGet(`/api/worldcup?season=2022&timezone=${encodeURIComponent(TZ)}`); // API-Football
-      seasonUsed = 2022;
-      el.brandSeason.textContent = '2022';
-      showBanner2022();
-    }
+    const list = await apiGet('/api/wc2026');   // Zafronix: Mundial 2026 real
+    seasonUsed = 2026;
+    el.brandSeason.textContent = '2026';
+    showBanner2026();
 
     if (!list.length) {
       el.matches.innerHTML = emptyHtml('🏆', 'Todavía no hay partidos disponibles.<br>Vuelve a intentarlo más tarde.');
@@ -177,31 +164,12 @@ async function init() {
 }
 
 function showBanner2026() {
-  el.banner.innerHTML = `✅ <strong>Mundial 2026 REAL</strong>: calendario completo, estadios, plantillas y grupos
-    (datos de Zafronix). Las <strong>alineaciones titulares</strong> de cada partido y el <strong>% de victoria</strong>
-    son de pago en las APIs; para verlas en acción, abre la pestaña <strong>📼 Mundial 2022</strong>.`;
+  el.banner.innerHTML = `✅ <strong>Mundial 2026 en vivo</strong>: calendario completo, estadios,
+    <strong>alineaciones titulares</strong>, grupos y goleadores (datos reales de Zafronix).
+    El <strong>marcador y los cambios EN VIVO</strong> son función de pago de las APIs; el marcador
+    final sí aparece gratis al terminar cada partido.`;
   el.banner.classList.remove('hidden');
-  el.tagline.textContent = 'Mundial 2026 · datos reales en vivo';
-}
-
-function showBanner2022() {
-  el.banner.innerHTML = `📼 <strong>Mundial 2022</strong>: edición con datos completos —
-    alineaciones titulares, % de victoria, eventos y estadísticas (API-Football). Útil para ver
-    todas las funciones mientras el 2026 está en marcha.`;
-  el.banner.classList.remove('hidden');
-  el.tagline.textContent = 'Mundial 2022 · con alineaciones y %';
-}
-
-// Cambiar de edicion (2026 <-> 2022)
-function setEdition(ed) {
-  if (edition === ed) return;
-  edition = ed;
-  el.ed2026.classList.toggle('active', ed === '2026');
-  el.ed2022.classList.toggle('active', ed === '2022');
-  // Limpiamos caches y estado del anterior
-  detailCache.clear();
-  selectedDate = null;
-  init();
+  el.tagline.textContent = 'Mundial 2026 · datos reales';
 }
 
 // Construir la lista de todas las selecciones del torneo (para favoritos)
@@ -1117,9 +1085,6 @@ el.nextDay.addEventListener('click', () => {
   if (i < dates.length - 1) selectDate(dates[i + 1]);
 });
 el.todayBtn.addEventListener('click', pickToday);
-
-el.ed2026.addEventListener('click', () => setEdition('2026'));
-el.ed2022.addEventListener('click', () => setEdition('2022'));
 
 el.tabPartidos.addEventListener('click', () => showSection('partidos'));
 el.tabGroups.addEventListener('click', () => showSection('groups'));
