@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>🏆 Mundial — Partidos, alineaciones y probabilidades</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <!-- Encabezado -->
+  <header class="topbar">
+    <div class="brand">
+      <span class="logo">🏆</span>
+      <div>
+        <h1>Mundial<span>2026</span></h1>
+        <p class="tagline" id="tagline">Partidos · Alineaciones · Probabilidad de victoria</p>
+      </div>
+    </div>
+    <div class="tz-badge" id="tzBadge" title="Tu zona horaria">🌍 —</div>
+  </header>
+
+  <!-- Selector de edicion del Mundial -->
+  <div class="edition-switch">
+    <button class="ed-btn active" id="ed2026">🏆 Mundial 2026 <small>real · en vivo</small></button>
+    <button class="ed-btn" id="ed2022">📼 Mundial 2022 <small>con alineaciones y %</small></button>
+  </div>
+
+  <!-- Aviso (informacion segun la edicion) -->
+  <div class="banner hidden" id="banner"></div>
+
+  <!-- Pestañas: Partidos / Grupos / Goleadores -->
+  <nav class="view-tabs">
+    <button class="view-tab active" id="tabPartidos">📅 Partidos</button>
+    <button class="view-tab" id="tabGroups">👥 Grupos</button>
+    <button class="view-tab" id="tabScorers">⚽ Goleadores</button>
+  </nav>
+
+  <!-- Barra de seleccion favorita -->
+  <div class="fav-bar" id="favBar"></div>
+
+  <!-- ===== VISTA PARTIDOS ===== -->
+  <div id="viewPartidos">
+    <!-- Navegador de fechas: Hoy / anterior / siguiente / elegir -->
+    <section class="date-nav">
+      <button class="nav-arrow" id="prevDay" title="Día anterior">‹</button>
+      <div class="date-center">
+        <button class="today-btn" id="todayBtn">Hoy</button>
+        <select id="dateSelect" class="date-select"></select>
+      </div>
+      <button class="nav-arrow" id="nextDay" title="Día siguiente">›</button>
+    </section>
+
+    <!-- Subtitulo: fecha elegida + numero de partidos -->
+    <div class="day-title" id="dayTitle"></div>
+
+    <!-- Indicador de auto-actualizacion (cuando hay partidos en vivo hoy) -->
+    <div class="refresh-bar hidden" id="refreshBar"></div>
+
+    <!-- Aqui se dibujan los partidos del dia elegido -->
+    <main id="matches" class="matches">
+      <div class="placeholder"><div class="spinner"></div>Cargando partidos del Mundial…</div>
+    </main>
+  </div>
+
+  <!-- ===== VISTA ESTADISTICAS (goleadores / asistidores) ===== -->
+  <div id="viewStats" class="hidden">
+    <section class="stats-board" id="statsBoard"></section>
+  </div>
+
+  <!-- Ventana de detalle (alineaciones, probabilidad, eventos, estadisticas) -->
+  <div class="modal hidden" id="modal">
+    <div class="modal-card">
+      <button class="modal-close" id="modalClose" aria-label="Cerrar">✕</button>
+      <div id="modalBody"></div>
+    </div>
+  </div>
+
+  <footer class="footer">
+    Datos por <a href="https://www.api-football.com" target="_blank" rel="noopener">API-Football</a> ·
+    Hecho con ⚽ y código
+  </footer>
+
+  <script src="app.js"></script>
+</body>
+</html>
